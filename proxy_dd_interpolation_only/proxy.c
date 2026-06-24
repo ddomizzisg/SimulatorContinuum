@@ -2515,6 +2515,12 @@ static double application_time(struct worker *my_data)
 
     struct stage_definition *stage_def = global_stage_definition(my_data->stage);
     double avg_service_time = stage_def ? stage_def->application_mean_service_time : 0.0;
+    if (stage_def && stage_def->name[0] != '\0') {
+        double loaded_time = applicationStageAlgo(stage_def->name);
+        if (loaded_time > 0.0) {
+            avg_service_time = loaded_time;
+        }
+    }
     double size_factor = stage_def ? stage_def->application_size_factor : 1.0;
     if (avg_service_time <= 0.0)
         return 0.0;

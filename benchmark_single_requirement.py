@@ -223,6 +223,11 @@ def parse_args():
         help="Skip `make` in the simulator directory.",
     )
     parser.add_argument(
+        "--simulator-only",
+        action="store_true",
+        help="Run only the simulator. Skips the real pipeline, calibration, and real/simulator error metrics.",
+    )
+    parser.add_argument(
         "--sweep",
         action="store_true",
         help="Run a parameter sweep instead of one benchmark.",
@@ -601,17 +606,29 @@ def requirement_spec(req_type: str, algorithm: str):
     return {"type": req_type, "algorithm": algorithm}
 
 
+def base_bandwidths_for_simulator_only(base_config):
+    b_fs = float(base_config.get("b_fs", 100.0))
+    return {
+        "b_fs": b_fs,
+        "b_fs_read": float(base_config.get("b_fs_read", b_fs)),
+        "b_fs_write": float(base_config.get("b_fs_write", b_fs)),
+    }
+
+
 def make_simulator_config(args, base_config):
     profile = getattr(args, "hardware_profile", None) or first_machine_profile(base_config)
     service_time_model = resolve_service_time_model(args, base_config)
     container_platform = resolve_container_platform(args, base_config)
     queue_container_image = resolve_queue_container_image(args, base_config, container_platform)
     ida_algo = args.algorithm if args.requirement_type == "cipher" else base_config.get("ida_algo", "RS")
-    bandwidths = {
-        "b_fs": 0.0,
-        "b_fs_read": 0.0,
-        "b_fs_write": 0.0,
-    }
+    if getattr(args, "simulator_only", False):
+        bandwidths = base_bandwidths_for_simulator_only(base_config)
+    else:
+        bandwidths = {
+            "b_fs": 0.0,
+            "b_fs_read": 0.0,
+            "b_fs_write": 0.0,
+        }
     trace = {
         "MUESTRAS": args.objects,
         "inter_arrival": args.inter_arrival,
@@ -965,6 +982,44 @@ def extract_metrics(args, benchmark_dir: Path):
     }
 
 
+def extract_simulator_metrics(args, benchmark_dir: Path):
+    stage_name, prefix = target_stage_and_prefix(args)
+    family = REQ_TO_FAMILY[args.requirement_type]
+    label = expected_requirement_label(args)
+
+    sim_row = stage_row_by_name(benchmark_dir / "simulator_results" / "stage_totals_by_workers.csv", stage_name)
+
+    stage_metric = f"{prefix}_stage_seconds"
+    stage_compute_metric = f"{prefix}_stage_compute_seconds"
+    family_metric = f"{prefix}_{family}_seconds"
+    family_compute_metric = f"{prefix}_{family}_compute_seconds"
+
+    sim_stage = compute_value(sim_row, stage_compute_metric, stage_metric)
+    sim_family = compute_value(sim_row, family_compute_metric, family_metric)
+    sim_requirement = requirement_compute_seconds_from_row(sim_row, prefix, label)
+    sim_total_stage = compute_value(sim_row, "total_compute_seconds", "total_seconds")
+
+    return {
+        "stage_name": stage_name,
+        "direction": args.direction,
+        "requirement_type": args.requirement_type,
+        "algorithm": args.algorithm,
+        "timing_basis": "simulator_only_compute",
+        "run_mode": "simulator_only",
+        "objects": args.objects,
+        "size_mb": args.size_mb,
+        "workers": args.workers,
+        "requirement_label": label,
+        "real": {},
+        "simulator": {
+            "stage_compute_seconds": sim_stage,
+            "family_compute_seconds": sim_family,
+            "requirement_compute_seconds": sim_requirement,
+            "total_stage_compute_seconds": sim_total_stage,
+        },
+    }
+
+
 def add_errors(summary):
     for scope in ("stage_compute_seconds", "family_compute_seconds", "requirement_compute_seconds", "total_stage_compute_seconds"):
         real_value = summary["real"][scope]
@@ -978,6 +1033,48 @@ def add_errors(summary):
             "ape_percent": ape,
         }
     return summary
+
+
+def metric_rows_for_summary(summary):
+    if summary.get("comparison"):
+        rows = []
+        for metric, values in summary["comparison"].items():
+            rows.append(
+                {
+                    "metric": metric,
+                    "real": values.get("real", ""),
+                    "simulator": values.get("simulator", ""),
+                    "error": values.get("error", ""),
+                    "ape_percent": values.get("ape_percent", ""),
+                }
+            )
+        return rows
+
+    rows = []
+    real_values = summary.get("real", {}) or {}
+    for metric, simulator_value in (summary.get("simulator", {}) or {}).items():
+        rows.append(
+            {
+                "metric": metric,
+                "real": real_values.get(metric, ""),
+                "simulator": simulator_value,
+                "error": "",
+                "ape_percent": "",
+            }
+        )
+    return rows
+
+
+def format_optional_seconds(value):
+    if value in ("", None):
+        return ""
+    return f"{float(value):.6f}"
+
+
+def format_optional_percent(value):
+    if value in ("", None):
+        return ""
+    return f"{float(value):.2f}"
 
 
 def write_summary(benchmark_dir: Path, summary):
@@ -997,6 +1094,7 @@ def write_summary(benchmark_dir: Path, summary):
         "objects",
         "size_mb",
         "workers",
+        "run_mode",
         "input_mode",
         "inter_arrival",
         "service_time_model",
@@ -1013,7 +1111,7 @@ def write_summary(benchmark_dir: Path, summary):
     with csv_path.open("w", newline="", encoding="utf-8") as fp:
         writer = csv.DictWriter(fp, fieldnames=fieldnames)
         writer.writeheader()
-        for metric, values in summary["comparison"].items():
+        for metric_row in metric_rows_for_summary(summary):
             writer.writerow(
                 {
                     "direction": summary["direction"],
@@ -1023,6 +1121,7 @@ def write_summary(benchmark_dir: Path, summary):
                     "objects": summary["objects"],
                     "size_mb": summary["size_mb"],
                     "workers": summary["workers"],
+                    "run_mode": summary.get("run_mode", "compare"),
                     "input_mode": summary.get("input_mode", ""),
                     "inter_arrival": summary.get("inter_arrival", ""),
                     "service_time_model": summary.get("service_time_model", ""),
@@ -1030,11 +1129,11 @@ def write_summary(benchmark_dir: Path, summary):
                     "queue_container_image": summary.get("queue_container_image", ""),
                     "ida_k": summary.get("ida_k", ""),
                     "ida_m": summary.get("ida_m", ""),
-                    "metric": metric,
-                    "real_seconds": values["real"],
-                    "simulator_seconds": values["simulator"],
-                    "error_seconds": values["error"],
-                    "ape_percent": values["ape_percent"],
+                    "metric": metric_row["metric"],
+                    "real_seconds": metric_row["real"],
+                    "simulator_seconds": metric_row["simulator"],
+                    "error_seconds": metric_row["error"],
+                    "ape_percent": metric_row["ape_percent"],
                 }
             )
 
@@ -1044,6 +1143,7 @@ def write_summary(benchmark_dir: Path, summary):
         f"- simulator dir: `{summary['simulator_dir']}`",
         f"- direction: `{summary['direction']}`",
         f"- requirement: `{summary['requirement_label']}`",
+        f"- run mode: `{summary.get('run_mode', 'compare')}`",
         f"- timing basis: `{summary['timing_basis']}`",
         f"- objects: `{summary['objects']}`",
         f"- object size: `{summary['size_mb']}` MB",
@@ -1057,15 +1157,17 @@ def write_summary(benchmark_dir: Path, summary):
         f"- container platform: `{summary.get('container_platform', '')}`",
         f"- queue container image: `{summary.get('queue_container_image', '')}`",
         f"- calibrated stage: `{summary.get('real_to_simulator_calibration', {}).get('stage_name', '')}`",
-        "- task read/write timing is excluded; simulator filesystem and queue timing are disabled",
+        "- real pipeline and error metrics are skipped" if summary.get("run_mode") == "simulator_only" else "- task read/write timing is excluded; simulator filesystem and queue timing are disabled",
         "",
         "| Metric | Real (s) | Simulator (s) | Error (s) | APE (%) |",
         "|---|---:|---:|---:|---:|",
     ]
-    for metric, values in summary["comparison"].items():
+    for metric_row in metric_rows_for_summary(summary):
         lines.append(
-            f"| {metric} | {values['real']:.6f} | {values['simulator']:.6f} | "
-            f"{values['error']:.6f} | {values['ape_percent']:.2f} |"
+            f"| {metric_row['metric']} | {format_optional_seconds(metric_row['real'])} | "
+            f"{format_optional_seconds(metric_row['simulator'])} | "
+            f"{format_optional_seconds(metric_row['error'])} | "
+            f"{format_optional_percent(metric_row['ape_percent'])} |"
         )
     md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -1115,22 +1217,29 @@ def run_single_benchmark(args, base_config, parent_out_dir=None):
     simulator_config_initial_path = benchmark_dir / "simulator_config_initial.json"
     write_json(simulator_config_initial_path, simulator_config)
 
-    real_config = make_real_pipeline_config(args, simulator_config_initial_path)
-    real_config_path = benchmark_dir / "real_pipeline_config.json"
-    write_json(real_config_path, real_config)
+    calibration_info = {}
+    if not getattr(args, "simulator_only", False):
+        real_config = make_real_pipeline_config(args, simulator_config_initial_path)
+        real_config_path = benchmark_dir / "real_pipeline_config.json"
+        write_json(real_config_path, real_config)
 
-    run_real_pipeline(args, real_config_path, benchmark_dir)
-    calibrated_simulator_config, calibration_info = calibrate_simulator_from_real(
-        args,
-        simulator_config,
-        benchmark_dir / "real_results",
-    )
+        run_real_pipeline(args, real_config_path, benchmark_dir)
+        simulator_config, calibration_info = calibrate_simulator_from_real(
+            args,
+            simulator_config,
+            benchmark_dir / "real_results",
+        )
+
     simulator_config_path = benchmark_dir / "simulator_config.json"
-    write_json(simulator_config_path, calibrated_simulator_config)
+    write_json(simulator_config_path, simulator_config)
     run_simulator(args, simulator_config_path, benchmark_dir)
 
-    summary = extract_metrics(args, benchmark_dir)
+    if getattr(args, "simulator_only", False):
+        summary = extract_simulator_metrics(args, benchmark_dir)
+    else:
+        summary = extract_metrics(args, benchmark_dir)
     summary["simulator_dir"] = str(args.simulator_dir)
+    summary["run_mode"] = "simulator_only" if getattr(args, "simulator_only", False) else "compare"
     summary["input_mode"] = args.input_mode
     summary["inter_arrival"] = args.inter_arrival
     summary["aes_key_bits"] = args.aes_key_bits
@@ -1140,17 +1249,23 @@ def run_single_benchmark(args, base_config, parent_out_dir=None):
     summary["ida_k"] = args.ida_k
     summary["ida_m"] = args.ida_m
     summary["real_to_simulator_calibration"] = calibration_info
-    add_errors(summary)
+    if not getattr(args, "simulator_only", False):
+        add_errors(summary)
     write_summary(benchmark_dir, summary)
 
     print(f"Benchmark written to {benchmark_dir}")
     print(f"Requirement: {summary['requirement_label']}")
+    print(f"Run mode: {summary['run_mode']}")
     print(f"Container platform: {summary['container_platform']} ({summary['queue_container_image']})")
-    for metric, values in summary["comparison"].items():
-        print(
-            f"{metric}: real={values['real']:.6f}s simulator={values['simulator']:.6f}s "
-            f"error={values['error']:.6f}s ape={values['ape_percent']:.2f}%"
-        )
+    if summary.get("comparison"):
+        for metric, values in summary["comparison"].items():
+            print(
+                f"{metric}: real={values['real']:.6f}s simulator={values['simulator']:.6f}s "
+                f"error={values['error']:.6f}s ape={values['ape_percent']:.2f}%"
+            )
+    else:
+        for metric, value in summary.get("simulator", {}).items():
+            print(f"{metric}: simulator={value:.6f}s")
     return summary, benchmark_dir
 
 
@@ -1232,6 +1347,7 @@ def sweep_plan_rows(cases):
                 "objects": case_args.objects,
                 "size_mb": case_args.size_mb,
                 "workers": case_args.workers,
+                "run_mode": "simulator_only" if getattr(case_args, "simulator_only", False) else "compare",
                 "inter_arrival": case_args.inter_arrival,
                 "aes_key_bits": case_args.aes_key_bits,
                 "service_time_model": case_args.service_time_model,
@@ -1257,6 +1373,7 @@ def flatten_summary_row(summary, benchmark_dir, status="ok", error=""):
         "objects": summary.get("objects", ""),
         "size_mb": summary.get("size_mb", ""),
         "workers": summary.get("workers", ""),
+        "run_mode": summary.get("run_mode", "compare"),
         "input_mode": summary.get("input_mode", ""),
         "inter_arrival": summary.get("inter_arrival", ""),
         "aes_key_bits": summary.get("aes_key_bits", ""),
@@ -1267,11 +1384,19 @@ def flatten_summary_row(summary, benchmark_dir, status="ok", error=""):
         "ida_m": summary.get("ida_m", ""),
         "requirement_label": summary.get("requirement_label", ""),
     }
-    for metric, values in summary.get("comparison", {}).items():
-        row[f"{metric}_real_seconds"] = values.get("real", 0.0)
-        row[f"{metric}_simulator_seconds"] = values.get("simulator", 0.0)
-        row[f"{metric}_error_seconds"] = values.get("error", 0.0)
-        row[f"{metric}_ape_percent"] = values.get("ape_percent", 0.0)
+    if summary.get("comparison"):
+        for metric, values in summary.get("comparison", {}).items():
+            row[f"{metric}_real_seconds"] = values.get("real", 0.0)
+            row[f"{metric}_simulator_seconds"] = values.get("simulator", 0.0)
+            row[f"{metric}_error_seconds"] = values.get("error", 0.0)
+            row[f"{metric}_ape_percent"] = values.get("ape_percent", 0.0)
+    else:
+        real_values = summary.get("real", {}) or {}
+        for metric, simulator_value in (summary.get("simulator", {}) or {}).items():
+            row[f"{metric}_real_seconds"] = real_values.get(metric, "")
+            row[f"{metric}_simulator_seconds"] = simulator_value
+            row[f"{metric}_error_seconds"] = ""
+            row[f"{metric}_ape_percent"] = ""
     return row
 
 
@@ -1287,6 +1412,7 @@ def failed_summary_row(case_args, error, benchmark_dir=""):
         "objects": case_args.objects,
         "size_mb": case_args.size_mb,
         "workers": case_args.workers,
+        "run_mode": "simulator_only" if getattr(case_args, "simulator_only", False) else "compare",
         "input_mode": case_args.input_mode,
         "inter_arrival": case_args.inter_arrival,
         "aes_key_bits": case_args.aes_key_bits,

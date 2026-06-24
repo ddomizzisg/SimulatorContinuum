@@ -1,0 +1,287 @@
+{
+    "workers": 1,
+    "traces_number": 1,
+    "traces": [
+        {
+            "MUESTRAS": 89,
+            "inter_arrival": 0.1,
+            "DISTRIBUTION": 3,
+            "mean": 15.0,
+            "stddev": 0.6,
+            "SIZE": 527575.0,
+            "stddevS": 0.1,
+            "Concurrency": 1
+        }
+    ],
+    "agent_type": "output",
+    "stages": [
+        {
+            "id": 1,
+            "name": "edge_acquisition",
+            "b_fs": 800.0,
+            "b_fs_read": 800.0,
+            "b_fs_write": 800.0,
+            "inter_arrival": 0.1,
+            "application_mean_service_time": 0.008,
+            "application_size_factor": 1.0,
+            "arrival_model": "burst",
+            "input_requirements": [],
+            "output_requirements": [
+                {
+                    "type": "hash",
+                    "algorithm": "SHA256",
+                    "label": "Integrity (SHA-256)"
+                },
+                {
+                    "type": "compress",
+                    "algorithm": "LZ4",
+                    "label": "Data compression (LZ4)"
+                },
+                {
+                    "type": "cipher",
+                    "algorithm": "CHACHA20",
+                    "label": "Data confidentiality (ChaCha20)"
+                },
+                {
+                    "type": "cipher",
+                    "algorithm": "RS",
+                    "label": "Reliability (IDA)"
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "name": "fog_preprocessing",
+            "b_fs": 800.0,
+            "b_fs_read": 800.0,
+            "b_fs_write": 800.0,
+            "inter_arrival": 0.1,
+            "application_mean_service_time": 0.05,
+            "application_size_factor": 1,
+            "arrival_model": "burst",
+            "input_requirements": [
+                {
+                    "type": "cipher",
+                    "algorithm": "RS",
+                    "label": "Reliability (IDA)"
+                },
+                {
+                    "type": "cipher",
+                    "algorithm": "CHACHA20",
+                    "label": "Data confidentiality (ChaCha20)"
+                },
+                {
+                    "type": "compress",
+                    "algorithm": "LZ4",
+                    "label": "Data compression (LZ4)"
+                },
+                {
+                    "type": "hash",
+                    "algorithm": "SHA256",
+                    "label": "Integrity (SHA-256)"
+                }
+            ],
+            "output_requirements": [
+                {
+                    "type": "compress",
+                    "algorithm": "LZ4",
+                    "label": "Data compression (LZ4)"
+                },
+                {
+                    "type": "cipher",
+                    "algorithm": "AES",
+                    "label": "Data confidentiality (AES)"
+                },
+                {
+                    "type": "cipher",
+                    "algorithm": "RS",
+                    "label": "Reliability (IDA)"
+                }
+            ]
+        },
+        {
+            "id": 3,
+            "name": "cloud_inference",
+            "b_fs": 800.0,
+            "b_fs_read": 800.0,
+            "b_fs_write": 800.0,
+            "inter_arrival": 0.1,
+            "application_mean_service_time": 0.2,
+            "application_size_factor": 0.25,
+            "arrival_model": "burst",
+            "input_requirements": [
+                {
+                    "type": "cipher",
+                    "algorithm": "RS",
+                    "label": "Reliability (IDA)"
+                },
+                {
+                    "type": "cipher",
+                    "algorithm": "AES",
+                    "label": "Data confidentiality (AES)"
+                },
+                {
+                    "type": "compress",
+                    "algorithm": "LZ4",
+                    "label": "Data compression (LZ4)"
+                }
+            ],
+            "output_requirements": [
+                {
+                    "type": "compress",
+                    "algorithm": "LZ4",
+                    "label": "Data compression (LZ4)"
+                },
+                {
+                    "type": "cipher",
+                    "algorithm": "AES",
+                    "label": "Data confidentiality (AES)"
+                },
+                {
+                    "type": "cipher",
+                    "algorithm": "RS",
+                    "label": "Reliability (IDA)"
+                }
+            ]
+        }
+    ],
+    "compression_algo": "LZ4",
+    "hashing_algo": "SHA256",
+    "ida_algo": "RS",
+    "ida_k": 8,
+    "ida_m": 4,
+    "aes_key_bits": 256,
+    "b_fs": 800.0,
+    "b_fs_read": 800.0,
+    "b_fs_write": 800.0,
+    "machines": [
+        {
+            "name": "edge",
+            "stages": [
+                "stage1"
+            ],
+            "hardware_profile": "c3",
+            "real_values_dir": "/home/domizzi/Documents/GitHub/SimulatorContinuum/proxy_dd/results_different_machines/organized/c3/real_values"
+        },
+        {
+            "name": "fog",
+            "stages": [
+                "stage2"
+            ],
+            "hardware_profile": "c3",
+            "real_values_dir": "/home/domizzi/Documents/GitHub/SimulatorContinuum/proxy_dd/results_different_machines/organized/c3/real_values"
+        },
+        {
+            "name": "cloud",
+            "stages": [
+                "stage3"
+            ],
+            "hardware_profile": "c3",
+            "real_values_dir": "/home/domizzi/Documents/GitHub/SimulatorContinuum/proxy_dd/results_different_machines/organized/c3/real_values"
+        }
+    ],
+    "links": [
+        {
+            "from": "edge",
+            "to": "fog",
+            "b_net": 100.0,
+            "latency_ms": 10.0
+        },
+        {
+            "from": "fog",
+            "to": "cloud",
+            "b_net": 50.0,
+            "latency_ms": 50.0
+        }
+    ],
+    "metadata": {
+        "case_study_figure": "proxy_dd/casestudy.pdf",
+        "notes": [
+            "The PDF has edge acquisition, fog preprocessing, and cloud inference application stages.",
+            "Input NFR agents are modeled as the reverse of the previous stage output NFR pipeline, matching the simulator's decode/verify behavior.",
+            "LEA is shown as an edge confidentiality option in the figure, but this simulator profile has measured CHACHA20 and AES values; CHACHA20 is used.",
+            "Application timings are stored per study here and divided by the dataset file count for per-object simulator service times."
+        ],
+        "reference_timings": {
+            "edge_acquisition": {
+                "seconds_per_study": 300.0,
+                "source": "Cleveland Clinic CT scan page: scan itself usually takes fewer than five minutes.",
+                "url": "https://my.clevelandclinic.org/health/diagnostics/4808-ct-computed-tomography-scan"
+            },
+            "fog_preprocessing": {
+                "seconds_per_study": 20.0,
+                "source": "Kitware medical image analysis architecture note: CT preprocessing often takes 10-30 seconds per scan.",
+                "url": "https://www.kitware.com/system-architecture-for-cloud-based-medical-image-analysis/"
+            },
+            "cloud_inference": {
+                "seconds_per_study": 44.9,
+                "source": "FLARE 2024/OpenReview nnU-Net pan-cancer segmentation entry: faster method mean inference time was 44.9 seconds.",
+                "url": "https://openreview.net/forum?id=9tui0BoCj7"
+            }
+        },
+        "stage_seconds_per_study": {
+            "edge_acquisition": 2.0089964506172837,
+            "fog_preprocessing": 1.6939117283950615,
+            "cloud_inference": 5.944686327160494
+        },
+        "stage_seconds_per_object": {
+            "edge_acquisition": 0.022572993827160492,
+            "fog_preprocessing": 0.019032716049382715,
+            "cloud_inference": 0.06679422839506173
+        },
+        "real_values_dir": "/home/domizzi/Documents/GitHub/SimulatorContinuum/proxy_dd/results_different_machines/organized/c3/real_values",
+        "nfr_mapping": {
+            "Integrity (SHA-256)": {
+                "type": "hash",
+                "algorithm": "SHA256"
+            },
+            "Data compression (LZ4)": {
+                "type": "compress",
+                "algorithm": "LZ4"
+            },
+            "Data confidentiality (ChaCha or LEA)": {
+                "type": "cipher",
+                "algorithm": "CHACHA20"
+            },
+            "Data confidentiality (AES)": {
+                "type": "cipher",
+                "algorithm": "AES"
+            },
+            "Reliability (IDA)": {
+                "type": "cipher",
+                "algorithm": "RS"
+            }
+        },
+        "dicom_by_dicom_calibration": {
+            "results_root": "CaseStudyBoneTumore/resultsdicombydicom",
+            "dicoms_per_study": 162,
+            "calibration_workers": 1,
+            "min_studies": 10,
+            "stat": "median",
+            "selected_experiments": [
+                "10std/exp_w1",
+                "20std/exp_w1",
+                "30std/exp_w1"
+            ],
+            "stage_summary_csv": "CaseStudyBoneTumore/resultsdicombydicom/calibration/stage_summary.csv",
+            "task_summary_csv": "CaseStudyBoneTumore/resultsdicombydicom/calibration/task_summary.csv",
+            "application_calibration_csv": "CaseStudyBoneTumore/resultsdicombydicom/calibration/application_calibration.csv",
+            "application_seconds_per_dicom": {
+                "edge_acquisition": 0.022572993827160492,
+                "fog_preprocessing": 0.019032716049382715,
+                "cloud_inference": 0.06679422839506173
+            },
+            "stage_wall_seconds_per_dicom_target": {
+                "edge_acquisition": 0.05789345679012346,
+                "fog_preprocessing": 0.0446412962962963,
+                "cloud_inference": 0.07551305555555556
+            },
+            "stage_work_seconds_per_dicom_observed": {
+                "edge_acquisition": 0.057866296296296305,
+                "fog_preprocessing": 0.044614259259259256,
+                "cloud_inference": 0.07547796296296296
+            }
+        }
+    },
+    "concurrency_penalty": 0.25
+}

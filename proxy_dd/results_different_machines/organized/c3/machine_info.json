@@ -7,10 +7,19 @@
   "datasets": {
     "cost-efficiency.csv": {
       "source_files": [
-        "c3/cost-efficiency/test1_1to1000/comp_stats.csv"
+        "c3/cost-efficiency/test1_1to1000/comp_stats.csv",
+        "kbresults/c3/cost-efficiency/comp_stats.csv",
+        "kbresults/c3/cost-efficiency/test1/comp_stats.csv",
+        "kbresults/c3/cost-efficiency/test2/comp_stats.csv"
       ],
-      "rows": 25,
+      "rows": 91,
       "sizes_mb": [
+        "0.000976562",
+        "0.00976562",
+        "0.0488281",
+        "0.0976562",
+        "0.488281",
+        "0.976562",
         "1",
         "10",
         "50",
@@ -21,10 +30,19 @@
     "integrity.csv": {
       "source_files": [
         "c3/security/test_1to100/integ_stats.csv",
-        "c3/security/test_1000/integ_stats.csv"
+        "c3/security/test_1000/integ_stats.csv",
+        "kbresults/c3/security/integ_stats.csv",
+        "kbresults/c3/security/test1/integ_stats.csv",
+        "kbresults/c3/security/test2/integ_stats.csv"
       ],
-      "rows": 20,
+      "rows": 80,
       "sizes_mb": [
+        "0.000976562",
+        "0.00976562",
+        "0.0488281",
+        "0.0976562",
+        "0.488281",
+        "0.976562",
         "1",
         "10",
         "50",
@@ -35,10 +53,17 @@
     "confidentiality.csv": {
       "source_files": [
         "c3/security/test_1to100/conf_stats.csv",
-        "c3/security/test_1000/conf_stats.csv"
+        "c3/security/test_1000/conf_stats.csv",
+        "kbresults/c3/security/conf_stats.csv"
       ],
-      "rows": 15,
+      "rows": 33,
       "sizes_mb": [
+        "0.000976562",
+        "0.00976562",
+        "0.0488281",
+        "0.0976562",
+        "0.488281",
+        "0.976562",
         "1",
         "10",
         "50",
@@ -49,10 +74,17 @@
     "reliability.csv": {
       "source_files": [
         "c3/reliability/test_1to100/erasure_stats.csv",
-        "c3/reliability/test_1000/erasure_stats.csv"
+        "c3/reliability/test_1000/erasure_stats.csv",
+        "kbresults/c3/reliability/erasure_stats.csv"
       ],
-      "rows": 15,
+      "rows": 33,
       "sizes_mb": [
+        "0.000976562",
+        "0.00976562",
+        "0.0488281",
+        "0.0976562",
+        "0.488281",
+        "0.976562",
         "1",
         "10",
         "50",

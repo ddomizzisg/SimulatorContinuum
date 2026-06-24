@@ -54,5 +54,6 @@ double IDAStageSize (double filesize) ;
 double IDAStageSizeAlgo (double filesize, const char *algo) ;
 
 void print_interpolation_points();
+float applicationStageAlgo (const char *task) ;
 
 //float uploadStage (long long unsigned filesize) ;

@@ -14,52 +14,67 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-WORKERS_LIST = [1, 2, 4, 8, 16]
-STUDIES_LIST = [1, 10, 100]
-CALIBRATION_FILE = Path("CaseStudyBoneTumore/resultadostiempos/workers_1_studies_1_workflow_timing.log")
-DATASET = Path.home() / "Downloads" / "medicalimages" / "dicoms" / "Px9"
+WORKERS_LIST = [1, 2, 4, 8, 16, 32]
+STUDIES_LIST = [1, 10, 20, 30]
+DICOMS_PER_STUDY = 89
+BASE_CONFIG_FILE = Path("proxy_dd/ct_scan_pipeline_config_calibrated_dicom_by_dicom.json").resolve()
 OUTPUT_BASE = Path("simulated_pipeline_results")
 SIMULATOR = Path("proxy_dd/main").resolve()
-HARDWARE_PROFILE = "c3"
+
+pt = 1./72.27
+jour_sizes = {"PRD": {"onecol": 246.*pt, "twocol": 510.*pt},
+              "CQG": {"onecol": 374.*pt}, }
+my_width = jour_sizes["PRD"]["twocol"]
+golden = (1 + 5 ** 0.5) / 1.1
 
 
 def run_experiment(workers, studies):
-    """Run a single ct_scan_pipeline experiment and extract timing."""
+    """Run a single proxy_dd experiment directly and extract timing."""
     output_dir = OUTPUT_BASE / f"workers_{workers}_studies_{studies}"
     output_dir.mkdir(parents=True, exist_ok=True)
+    results_dir = output_dir / "results"
+    results_dir.mkdir(parents=True, exist_ok=True)
 
-    print(output_dir)
+    print(f"[{datetime.now().strftime('%H:%M:%S')}] Running: workers={workers}, studies={studies}")
     
+    # Load base config
+    try:
+        with BASE_CONFIG_FILE.open("r") as f:
+            config = json.load(f)
+    except Exception as e:
+        print(f"  ERROR: Could not load base config {BASE_CONFIG_FILE}: {e}")
+        return None
+        
+    # Override parameters
+    config["workers"] = workers
+    if "traces" in config and len(config["traces"]) > 0:
+        config["traces"][0]["MUESTRAS"] = studies * DICOMS_PER_STUDY
+    else:
+        print(f"  ERROR: Invalid traces configuration in base config.")
+        return None
+        
+    temp_config_path = output_dir / "temp_config.json"
+    with temp_config_path.open("w") as f:
+        json.dump(config, f, indent=4)
+        
     cmd = [
-        "python3",
-        "proxy_dd/ct_scan_pipeline.py",
-        "--dataset", str(DATASET),
-        "--workers", str(workers),
-        "--studies", str(studies),
-        "--calibration-file", str(CALIBRATION_FILE),
-        "--output-dir", str(output_dir),
-        "--simulator", str(SIMULATOR),
-        "--hardware-profile", HARDWARE_PROFILE,
+        str(SIMULATOR),
+        str(temp_config_path.resolve())
     ]
     
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] Running: workers={workers}, studies={studies}")
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        # Run from output directory so results go into output_dir/results
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, cwd=str(output_dir.resolve()))
         if result.returncode != 0:
             print(f"  ERROR: {result.stderr[:500]}")
             print(f"  STDOUT: {result.stdout[:500]}")
-            return None
-        
-        # Extract timing from stdout
-        match = re.search(r"Simulation complete", result.stdout)
-        if not match:
-            print(f"  ERROR: Simulation did not complete")
             return None
         
         # Read the stage totals CSV to get pipeline timing
         stage_totals_file = output_dir / "results" / "stage_totals_by_workers.csv"
         if not stage_totals_file.exists():
             print(f"  ERROR: stage_totals_by_workers.csv not found at {stage_totals_file}")
+            print(f"  STDOUT: {result.stdout[:500]}")
             return None
         
         # Read the stage totals and extract the pipeline total (sum of all stages' total_seconds)
@@ -85,20 +100,14 @@ def run_experiment(workers, studies):
 
 def main():
     print(f"Starting calibrated pipeline simulations at {datetime.now()}")
-    print(f"Calibration file: {CALIBRATION_FILE}")
-    print(f"Dataset: {DATASET}")
+    print(f"Base config: {BASE_CONFIG_FILE}")
     print(f"Simulator: {SIMULATOR}")
-    print(f"Hardware profile: {HARDWARE_PROFILE}")
+    print(f"DICOMs per study: {DICOMS_PER_STUDY}")
     print()
     
-    # Verify calibration file exists
-    if not CALIBRATION_FILE.exists():
-        print(f"ERROR: Calibration file not found: {CALIBRATION_FILE}")
-        return 1
-    
-    # Verify dataset exists
-    if not DATASET.exists():
-        print(f"ERROR: Dataset not found: {DATASET}")
+    # Verify base config exists
+    if not BASE_CONFIG_FILE.exists():
+        print(f"ERROR: Base config not found: {BASE_CONFIG_FILE}")
         return 1
     
     # Verify simulator exists
@@ -198,38 +207,29 @@ def main():
 
 
 def load_real_results():
-    """Load real execution results from output.txt."""
-    output_file = Path("CaseStudyBoneTumore/resultadostiempos/output.txt")
-    if not output_file.exists():
+    """Load real execution results from resultsdicombydicom."""
+    base_dir = Path("CaseStudyBoneTumore/resultsdicombydicom")
+    if not base_dir.exists():
         return {}
     
     real_results = {}
-    with output_file.open() as fh:
-        content = fh.read()
-    
-    exp_re = re.compile(r'Running experiment: Workers = (\d+) \| Studies = (\d+)')
-    time_re = re.compile(r'\[TIMING\] Overall execution time: ([0-9.]+) seconds')
-    
-    lines = content.splitlines()
-    for i, line in enumerate(lines):
-        m = exp_re.search(line)
-        if m:
-            workers = int(m.group(1))
-            studies = int(m.group(2))
-            t = None
-            # Search for timing in the next 500 lines
-            for j in range(i+1, min(len(lines), i+500)):
-                if lines[j].startswith('[TIMING] Overall execution time:'):
-                    tm = time_re.search(lines[j])
-                    if tm:
-                        t = float(tm.group(1))
-                    break
-                if lines[j].startswith('Finished experiment:'):
-                    break
-            if t is not None:
-                if studies not in real_results:
-                    real_results[studies] = {}
-                real_results[studies][workers] = t
+    for studies in STUDIES_LIST:
+        std_dir = base_dir / f"{studies}std"
+        benchmark_file = std_dir / "final_benchmark.csv"
+        
+        if not benchmark_file.exists():
+            continue
+            
+        real_results[studies] = {}
+        with benchmark_file.open("r") as fh:
+            reader = csv.DictReader(fh)
+            for row in reader:
+                try:
+                    w = int(row["Workers"])
+                    t = float(row["Total Wall-Clock Time (s)"])
+                    real_results[studies][w] = t
+                except (ValueError, KeyError):
+                    continue
     
     return real_results
 
@@ -354,8 +354,10 @@ def plot_simulations(results):
 
 def create_comparison_plot(sim_results, real_results):
     """Create side-by-side comparison of simulated vs real results."""
-    fig, axes = plt.subplots(1, 3, figsize=(16, 5))
-    
+    fig, axes = plt.subplots(1, len(STUDIES_LIST), figsize=(my_width, my_width / golden))
+    if len(STUDIES_LIST) == 1:
+        axes = [axes]
+        
     # Plot for each study count
     for idx, studies in enumerate(STUDIES_LIST):
         ax = axes[idx]
@@ -374,17 +376,36 @@ def create_comparison_plot(sim_results, real_results):
         if any(real_times):
             bars2 = ax.bar(x + width/2, real_times, width, label='Real', alpha=0.8)
         
-        ax.set_xlabel('Workers', fontsize=11)
-        ax.set_ylabel('Execution time (s)', fontsize=11)
+        #ax.set_xlabel('Workers', fontsize=11)
+        #ax.set_ylabel('Execution time (s)', fontsize=11)
         ax.set_title(f'{studies} Studies', fontsize=12, fontweight='bold')
         ax.set_xticks(x)
         ax.set_xticklabels(WORKERS_LIST)
-        ax.legend()
+        #ax.legend()
         ax.grid(True, axis='y', linestyle='--', alpha=0.5)
     
-    plt.suptitle('Simulated vs Real Workflow Execution Times', fontsize=13, fontweight='bold', y=1.02)
+    # 2. Collect all handles and labels from all axes
+    handles, labels = [], []
+    for ax in fig.axes:
+        h, l = ax.get_legend_handles_labels()
+        handles.extend(h)
+        labels.extend(l)
+
+    # 3. Remove duplicate labels (keeps the first occurrence)
+    # Using a dictionary automatically drops duplicate keys
+    by_label = dict(zip(labels, handles))
+
+    # 4. Create the Figure-level legend
+    fig.legend(by_label.values(), by_label.keys(), 
+            loc='upper center', 
+            bbox_to_anchor=(0.5, 1.1), # Positions it above the subplots
+            ncol=2)                    # Spreads it horizontally
+
+    #plt.suptitle('Simulated vs Real Workflow Execution Times', fontsize=13, fontweight='bold', y=1.02)
+    fig.supylabel('Response time (s)', x=0.02)
+    fig.supxlabel('Workers', y=0.08)
     plt.tight_layout()
-    comp_file = OUTPUT_BASE / "simulation_vs_real_comparison.png"
+    comp_file = OUTPUT_BASE / "simulation_vs_real_comparison.pdf"
     fig.savefig(comp_file, dpi=150, bbox_inches='tight')
     print(f"Comparison plot saved to: {comp_file}")
     plt.close(fig)

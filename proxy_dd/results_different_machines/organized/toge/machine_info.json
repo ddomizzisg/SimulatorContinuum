@@ -7,10 +7,17 @@
   "datasets": {
     "cost-efficiency.csv": {
       "source_files": [
-        "toge/cost-efficiency/comp_stats.csv"
+        "toge/cost-efficiency/comp_stats.csv",
+        "kbresults/toge/cost-efficiency/comp_stats.csv"
       ],
-      "rows": 25,
+      "rows": 55,
       "sizes_mb": [
+        "0.000976562",
+        "0.00976562",
+        "0.0488281",
+        "0.0976562",
+        "0.488281",
+        "0.976562",
         "1",
         "10",
         "50",
@@ -20,10 +27,17 @@
     },
     "integrity.csv": {
       "source_files": [
-        "toge/security/integ_stats.csv"
+        "toge/security/integ_stats.csv",
+        "kbresults/toge/security/integ_stats.csv"
       ],
-      "rows": 20,
+      "rows": 44,
       "sizes_mb": [
+        "0.000976562",
+        "0.00976562",
+        "0.0488281",
+        "0.0976562",
+        "0.488281",
+        "0.976562",
         "1",
         "10",
         "50",
@@ -33,10 +47,17 @@
     },
     "confidentiality.csv": {
       "source_files": [
-        "toge/security/conf_stats.csv"
+        "toge/security/conf_stats.csv",
+        "kbresults/toge/security/conf_stats.csv"
       ],
-      "rows": 15,
+      "rows": 33,
       "sizes_mb": [
+        "0.000976562",
+        "0.00976562",
+        "0.0488281",
+        "0.0976562",
+        "0.488281",
+        "0.976562",
         "1",
         "10",
         "50",
@@ -46,10 +67,17 @@
     },
     "reliability.csv": {
       "source_files": [
-        "toge/reliability/erasure_stats.csv"
+        "toge/reliability/erasure_stats.csv",
+        "kbresults/toge/reliability/erasure_stats.csv"
       ],
-      "rows": 15,
+      "rows": 33,
       "sizes_mb": [
+        "0.000976562",
+        "0.00976562",
+        "0.0488281",
+        "0.0976562",
+        "0.488281",
+        "0.976562",
         "1",
         "10",
         "50",

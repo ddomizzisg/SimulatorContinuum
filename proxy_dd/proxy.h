@@ -171,6 +171,7 @@ struct config
 	double b_fs_read;									   /**< Filesystem read bandwidth (bytes/sec). */
 	double b_fs_write;									   /**< Filesystem write bandwidth (bytes/sec). */
 	double application_mean_service_time;				   /**< Average application execution time in seconds. */
+	double concurrency_penalty;							   /**< Penalty multiplier per concurrent worker. */
 	struct machine_node machines[MAX_MACHINES];			   /**< Optional distributed machines */
 	int machines_number;
 	struct link_node links[MAX_LINKS]; /**< Links between machines */

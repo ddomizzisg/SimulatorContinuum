@@ -14,18 +14,26 @@ MACHINE_SPECS = {
         "datasets": {
             "cost-efficiency.csv": [
                 "c3/cost-efficiency/test1_1to1000/comp_stats.csv",
+                "kbresults/c3/cost-efficiency/comp_stats.csv",
+                "kbresults/c3/cost-efficiency/test1/comp_stats.csv",
+                "kbresults/c3/cost-efficiency/test2/comp_stats.csv",
             ],
             "integrity.csv": [
                 "c3/security/test_1to100/integ_stats.csv",
                 "c3/security/test_1000/integ_stats.csv",
+                "kbresults/c3/security/integ_stats.csv",
+                "kbresults/c3/security/test1/integ_stats.csv",
+                "kbresults/c3/security/test2/integ_stats.csv",
             ],
             "confidentiality.csv": [
                 "c3/security/test_1to100/conf_stats.csv",
                 "c3/security/test_1000/conf_stats.csv",
+                "kbresults/c3/security/conf_stats.csv",
             ],
             "reliability.csv": [
                 "c3/reliability/test_1to100/erasure_stats.csv",
                 "c3/reliability/test_1000/erasure_stats.csv",
+                "kbresults/c3/reliability/erasure_stats.csv",
             ],
         },
     },
@@ -36,15 +44,19 @@ MACHINE_SPECS = {
         "datasets": {
             "cost-efficiency.csv": [
                 "toge/cost-efficiency/comp_stats.csv",
+                "kbresults/toge/cost-efficiency/comp_stats.csv",
             ],
             "integrity.csv": [
                 "toge/security/integ_stats.csv",
+                "kbresults/toge/security/integ_stats.csv",
             ],
             "confidentiality.csv": [
                 "toge/security/conf_stats.csv",
+                "kbresults/toge/security/conf_stats.csv",
             ],
             "reliability.csv": [
                 "toge/reliability/erasure_stats.csv",
+                "kbresults/toge/reliability/erasure_stats.csv",
             ],
         },
     },
@@ -55,15 +67,19 @@ MACHINE_SPECS = {
         "datasets": {
             "cost-efficiency.csv": [
                 "DianaLap/cost-efficiency/comp_stats.csv",
+                "kbresults/Dianalap/cost-efficiency/comp_stats.csv",
             ],
             "integrity.csv": [
                 "DianaLap/security/integ_stats.csv",
+                "kbresults/Dianalap/security/integ_stats.csv",
             ],
             "confidentiality.csv": [
                 "DianaLap/security/conf_stats.csv",
+                "kbresults/Dianalap/security/conf_stats.csv",
             ],
             "reliability.csv": [
                 "DianaLap/reliability/erasure_stats.csv",
+                "kbresults/Dianalap/reliability/erasure_stats.csv",
             ],
         },
     },
@@ -83,6 +99,25 @@ MACHINE_SPECS = {
             ],
             "reliability.csv": [
                 "DanteLap/reliability/erasure_stats.csv",
+            ],
+        },
+    },
+    "panda": {
+        "machine_name": "Panda",
+        "hardware_profile": "unknown",
+        "description": "Panda machine",
+        "datasets": {
+            "cost-efficiency.csv": [
+                "kbresults/panda/cost-efficiency/comp_stats.csv",
+            ],
+            "integrity.csv": [
+                "kbresults/panda/security/integ_stats.csv",
+            ],
+            "confidentiality.csv": [
+                "kbresults/panda/security/conf_stats.csv",
+            ],
+            "reliability.csv": [
+                "kbresults/panda/reliability/erasure_stats.csv",
             ],
         },
     },
@@ -150,6 +185,29 @@ def merge_dataset_rows(source_root, relative_paths, dataset_name):
             raise FileNotFoundError(f"Missing source CSV: {path}")
 
         current_fields, rows = read_csv_rows(path)
+        
+        # Normalize KB columns to MB columns
+        normalized_fields = []
+        kb_columns = []
+        for f in current_fields:
+            if '_kb' in f:
+                new_f = f.replace('_kb', '_mb')
+                normalized_fields.append(new_f)
+                kb_columns.append((f, new_f))
+            else:
+                normalized_fields.append(f)
+                
+        if kb_columns:
+            current_fields = normalized_fields
+            for row in rows:
+                for old_f, new_f in kb_columns:
+                    val = row.pop(old_f, None)
+                    if val is not None:
+                        try:
+                            row[new_f] = f"{float(val) / 1024.0:g}"
+                        except ValueError:
+                            row[new_f] = val
+
         if fieldnames is None:
             fieldnames = current_fields
         elif current_fields != fieldnames:
@@ -205,6 +263,8 @@ def write_readme(output_root, summaries):
         "- `c3`: HPC machine",
         "- `toge`: Raspberry Pi 5",
         "- `dianalap`: Personal laptop",
+        "- `dantelap`: Personal laptop with GPU",
+        "- `panda`: Panda machine",
         "",
         "Each machine folder contains a `real_values/` directory with:",
         "",

@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/home/dcarriza/nfrs-benchmarks-main_V2/venv/bin/pip", line 7, in <module>
+    from pip import main
+  File "/opt/ohpc/pub/python/python3.12/lib/python3.12/site-packages/pip/__init__.py", line 1
+    from __future__ import annotations
+    ^
+SyntaxError: future feature annotations is not defined
+Traceback (most recent call last):
+  File "security/confidentiality.py", line 8, in <module>
+    from Crypto.Cipher import AES, ChaCha20
+ModuleNotFoundError: No module named 'Crypto'

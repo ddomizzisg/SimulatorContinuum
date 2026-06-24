@@ -38,6 +38,8 @@ typedef struct
     int ida_table_size;
     InterpolationPoint ida_decode_table[MAX_INTERPOLATION_POINTS];
     int ida_decode_table_size;
+    InterpolationPoint application_table[MAX_INTERPOLATION_POINTS];
+    int application_table_size;
 } ServiceProfile;
 
 typedef enum
@@ -189,8 +191,11 @@ static int load_profile_from_dir(ServiceProfile *profile, const struct config *c
     strncpy(profile->source_dir, directory, sizeof(profile->source_dir) - 1);
     profile->source_dir[sizeof(profile->source_dir) - 1] = '\0';
 
+    printf("Loading service times from directory: %s\n", directory);
+
     // Load Cost-Efficiency (Compression)
     build_path(csv_path, sizeof(csv_path), directory, "cost-efficiency.csv");
+    printf("Loading compression points from: %s\n", csv_path);
     fp = fopen(csv_path, "r");
     if (fp)
     {
@@ -209,12 +214,16 @@ static int load_profile_from_dir(ServiceProfile *profile, const struct config *c
             strtok(NULL, ","); // std_io_read_s
             char *decomp_token = trim_whitespace(strtok(NULL, ","));
 
+            
             if (algo && time_token && profile->compress_table_size < MAX_INTERPOLATION_POINTS && profile->decompress_table_size < MAX_INTERPOLATION_POINTS)
             {
                 float size_mb = atof(size_token);
                 float ratio = atof(ratio_str); // ignores 'x'
                 float comp_s = atof(time_token);
                 float decomp_s = decomp_token ? atof(decomp_token) : comp_s;
+
+                printf("Read compression point: algo=%s, size=%s, ratio=%s, comp_s=%s, decomp_s=%s\n", algo, size_token, ratio_str, time_token, decomp_token ? decomp_token : "N/A");
+
 
                 strncpy(profile->compress_table[profile->compress_table_size].algo, algo, sizeof(profile->compress_table[profile->compress_table_size].algo) - 1);
                 profile->compress_table[profile->compress_table_size].algo[sizeof(profile->compress_table[profile->compress_table_size].algo) - 1] = '\0';
@@ -342,7 +351,7 @@ static int load_profile_from_dir(ServiceProfile *profile, const struct config *c
         printf("Warning: Could not open %s\n", csv_path);
     }
 
-    if (profile->compress_table_size == 0 && profile->hashing_table_size == 0 && profile->ida_table_size == 0)
+    if (profile->compress_table_size == 0 && profile->hashing_table_size == 0 && profile->ida_table_size == 0 && profile->application_table_size == 0)
         return -1;
 
     return 0;
@@ -423,6 +432,12 @@ void print_interpolation_points()
         return;
 
     // Print the interpolation points for debugging
+
+    printf("Service Profile: %s\n", profile->name);
+    printf("Default Compression Algo: %s\n", default_compression_algo);
+    printf("Default Hashing Algo: %s\n", default_hashing_algo);
+    printf("Default IDA Algo: %s\n", default_ida_algo);
+    printf("Size of compress table: %d\n", profile->compress_table_size);
     for (int i = 0; i < profile->compress_table_size; i++)
     {
         printf("Compress Table: %s %f %f %f\n", profile->compress_table[i].algo, profile->compress_table[i].size, profile->compress_table[i].time, profile->compress_table[i].ratio);
@@ -446,6 +461,11 @@ void print_interpolation_points()
     for (int i = 0; i < profile->ida_decode_table_size; i++)
     {
         printf("IDA Decode Table: %s %f %f %f\n", profile->ida_decode_table[i].algo, profile->ida_decode_table[i].size, profile->ida_decode_table[i].time, profile->ida_decode_table[i].ratio);
+    }
+
+    for (int i = 0; i < profile->application_table_size; i++)
+    {
+        printf("Application Table: %s %f %f %f\n", profile->application_table[i].algo, profile->application_table[i].size, profile->application_table[i].time, profile->application_table[i].ratio);
     }
 }
 
@@ -531,6 +551,7 @@ static float do_log_log_power_law_fit_algo(float filesize, InterpolationPoint *t
         count++;
     }
 
+    printf("Log-Log Fit: count=%d, sum_x=%f, sum_y=%f, sum_xx=%f, sum_xy=%f\n", count, sum_x, sum_y, sum_xx, sum_xy);
     if (count == 0)
         return NAN;
     if (count == 1)
@@ -551,6 +572,9 @@ static float do_log_log_power_law_fit_algo(float filesize, InterpolationPoint *t
 
         if (!isfinite(prediction) || prediction < 0.0)
             return NAN;
+
+        printf("filesize=%f, exponent=%lf, log_coefficient=%lf, prediction=%lf\n", filesize, exponent, log_coefficient, prediction);
+        printf("Log-Log Fit: exponent=%lf, coefficient=%lf, prediction=%lf\n", exponent, exp(log_coefficient), prediction);
 
         return (float)prediction;
     }
@@ -718,6 +742,21 @@ double IDAStageSizeAlgo(double filesize, const char *algo)
     if (ratio <= 0.0f)
         ratio = 1.0f;
     return (double)(filesize * ratio);
+}
+
+float applicationStageAlgo(const char *task)
+{
+    ServiceProfile *profile = current_service_profile();
+    if (!profile)
+        return 0.0f;
+    for (int y = 0; y < profile->application_table_size; ++y)
+    {
+        if (algo_matches(task, profile->application_table[y].algo))
+        {
+            return profile->application_table[y].time;
+        }
+    }
+    return 0.0f;
 }
 
 void set_service_time_profile(int profile_index)

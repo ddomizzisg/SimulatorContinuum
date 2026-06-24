@@ -1,0 +1,31 @@
+{
+  "results_root": "CaseStudyBoneTumore/resultsdicombydicom",
+  "dicoms_per_study": 162,
+  "calibration_workers": 1,
+  "min_studies": 10,
+  "stat": "median",
+  "selected_experiments": [
+    "10std/exp_w1",
+    "20std/exp_w1",
+    "30std/exp_w1"
+  ],
+  "stage_summary_csv": "CaseStudyBoneTumore/resultsdicombydicom/calibration/stage_summary.csv",
+  "task_summary_csv": "CaseStudyBoneTumore/resultsdicombydicom/calibration/task_summary.csv",
+  "application_calibration_csv": "CaseStudyBoneTumore/resultsdicombydicom/calibration/application_calibration.csv",
+  "application_seconds_per_dicom": {
+    "edge_acquisition": 0.022572993827160492,
+    "fog_preprocessing": 0.019032716049382715,
+    "cloud_inference": 0.06679422839506173
+  },
+  "stage_wall_seconds_per_dicom_target": {
+    "edge_acquisition": 0.05789345679012346,
+    "fog_preprocessing": 0.0446412962962963,
+    "cloud_inference": 0.07551305555555556
+  },
+  "stage_work_seconds_per_dicom_observed": {
+    "edge_acquisition": 0.057866296296296305,
+    "fog_preprocessing": 0.044614259259259256,
+    "cloud_inference": 0.07547796296296296
+  },
+  "calibrated_config": "proxy_dd/ct_scan_pipeline_results/ct_scan_pipeline_config_calibrated_dicom_by_dicom.json"
+}

@@ -7,10 +7,17 @@
   "datasets": {
     "cost-efficiency.csv": {
       "source_files": [
-        "DianaLap/cost-efficiency/comp_stats.csv"
+        "DianaLap/cost-efficiency/comp_stats.csv",
+        "kbresults/Dianalap/cost-efficiency/comp_stats.csv"
       ],
-      "rows": 25,
+      "rows": 55,
       "sizes_mb": [
+        "0.000976562",
+        "0.00976562",
+        "0.0488281",
+        "0.0976562",
+        "0.488281",
+        "0.976562",
         "1",
         "10",
         "50",
@@ -20,10 +27,17 @@
     },
     "integrity.csv": {
       "source_files": [
-        "DianaLap/security/integ_stats.csv"
+        "DianaLap/security/integ_stats.csv",
+        "kbresults/Dianalap/security/integ_stats.csv"
       ],
-      "rows": 20,
+      "rows": 44,
       "sizes_mb": [
+        "0.000976562",
+        "0.00976562",
+        "0.0488281",
+        "0.0976562",
+        "0.488281",
+        "0.976562",
         "1",
         "10",
         "50",
@@ -33,10 +47,17 @@
     },
     "confidentiality.csv": {
       "source_files": [
-        "DianaLap/security/conf_stats.csv"
+        "DianaLap/security/conf_stats.csv",
+        "kbresults/Dianalap/security/conf_stats.csv"
       ],
-      "rows": 15,
+      "rows": 33,
       "sizes_mb": [
+        "0.000976562",
+        "0.00976562",
+        "0.0488281",
+        "0.0976562",
+        "0.488281",
+        "0.976562",
         "1",
         "10",
         "50",
@@ -46,10 +67,17 @@
     },
     "reliability.csv": {
       "source_files": [
-        "DianaLap/reliability/erasure_stats.csv"
+        "DianaLap/reliability/erasure_stats.csv",
+        "kbresults/Dianalap/reliability/erasure_stats.csv"
       ],
-      "rows": 15,
+      "rows": 33,
       "sizes_mb": [
+        "0.000976562",
+        "0.00976562",
+        "0.0488281",
+        "0.0976562",
+        "0.488281",
+        "0.976562",
         "1",
         "10",
         "50",

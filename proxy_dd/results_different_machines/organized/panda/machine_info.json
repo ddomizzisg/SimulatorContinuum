@@ -1,0 +1,65 @@
+{
+  "machine_id": "panda",
+  "machine_name": "Panda",
+  "hardware_profile": "unknown",
+  "description": "Panda machine",
+  "source_root": "/home/domizzi/Documents/GitHub/SimulatorContinuum/proxy_dd/results_different_machines",
+  "datasets": {
+    "cost-efficiency.csv": {
+      "source_files": [
+        "kbresults/panda/cost-efficiency/comp_stats.csv"
+      ],
+      "rows": 30,
+      "sizes_mb": [
+        "0.000976562",
+        "0.00976562",
+        "0.0488281",
+        "0.0976562",
+        "0.488281",
+        "0.976562"
+      ]
+    },
+    "integrity.csv": {
+      "source_files": [
+        "kbresults/panda/security/integ_stats.csv"
+      ],
+      "rows": 24,
+      "sizes_mb": [
+        "0.000976562",
+        "0.00976562",
+        "0.0488281",
+        "0.0976562",
+        "0.488281",
+        "0.976562"
+      ]
+    },
+    "confidentiality.csv": {
+      "source_files": [
+        "kbresults/panda/security/conf_stats.csv"
+      ],
+      "rows": 18,
+      "sizes_mb": [
+        "0.000976562",
+        "0.00976562",
+        "0.0488281",
+        "0.0976562",
+        "0.488281",
+        "0.976562"
+      ]
+    },
+    "reliability.csv": {
+      "source_files": [
+        "kbresults/panda/reliability/erasure_stats.csv"
+      ],
+      "rows": 18,
+      "sizes_mb": [
+        "0.000976562",
+        "0.00976562",
+        "0.0488281",
+        "0.0976562",
+        "0.488281",
+        "0.976562"
+      ]
+    }
+  }
+}

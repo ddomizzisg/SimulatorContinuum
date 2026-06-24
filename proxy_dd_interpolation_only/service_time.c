@@ -37,6 +37,8 @@ typedef struct
     int ida_table_size;
     InterpolationPoint ida_decode_table[MAX_INTERPOLATION_POINTS];
     int ida_decode_table_size;
+    InterpolationPoint application_table[MAX_INTERPOLATION_POINTS];
+    int application_table_size;
 } ServiceProfile;
 
 typedef enum
@@ -404,7 +406,38 @@ static int load_profile_from_dir(ServiceProfile *profile, const struct config *c
         printf("Warning: Could not open %s\n", csv_path);
     }
 
-    if (profile->compress_table_size == 0 && profile->hashing_table_size == 0 && profile->ida_table_size == 0)
+    // Load Application Calibration
+    build_path(csv_path, sizeof(csv_path), directory, "application_calibration.csv");
+    fp = fopen(csv_path, "r");
+    if (fp)
+    {
+        fgets(line, sizeof(line), fp); // skip header
+        while (fgets(line, sizeof(line), fp))
+        {
+            char *task = trim_whitespace(strtok(line, ","));
+            char *duration_per_dicom = trim_whitespace(strtok(NULL, ","));
+            strtok(NULL, ","); // duration_seconds
+
+            if (task && duration_per_dicom && profile->application_table_size < MAX_INTERPOLATION_POINTS)
+            {
+                float time_s = atof(duration_per_dicom);
+
+                strncpy(profile->application_table[profile->application_table_size].algo, task, sizeof(profile->application_table[profile->application_table_size].algo) - 1);
+                profile->application_table[profile->application_table_size].algo[sizeof(profile->application_table[profile->application_table_size].algo) - 1] = '\0';
+                profile->application_table[profile->application_table_size].size = 1.0f;
+                profile->application_table[profile->application_table_size].time = time_s;
+                profile->application_table[profile->application_table_size].ratio = 1.0f;
+                profile->application_table_size++;
+            }
+        }
+        fclose(fp);
+    }
+    else
+    {
+        printf("Warning: Could not open %s\n", csv_path);
+    }
+
+    if (profile->compress_table_size == 0 && profile->hashing_table_size == 0 && profile->ida_table_size == 0 && profile->application_table_size == 0)
         return -1;
 
     return 0;
@@ -509,6 +542,11 @@ void print_interpolation_points()
     for (int i = 0; i < profile->ida_decode_table_size; i++)
     {
         printf("IDA Decode Table: %s %f %f %f\n", profile->ida_decode_table[i].algo, profile->ida_decode_table[i].size, profile->ida_decode_table[i].time, profile->ida_decode_table[i].ratio);
+    }
+
+    for (int i = 0; i < profile->application_table_size; i++)
+    {
+        printf("Application Table: %s %f %f %f\n", profile->application_table[i].algo, profile->application_table[i].size, profile->application_table[i].time, profile->application_table[i].ratio);
     }
 }
 
@@ -716,6 +754,21 @@ double IDAStageSizeAlgo(double filesize, const char *algo)
     if (ratio <= 0.0f)
         ratio = 1.0f;
     return (double)(filesize * ratio);
+}
+
+float applicationStageAlgo(const char *task)
+{
+    ServiceProfile *profile = current_service_profile();
+    if (!profile)
+        return 0.0f;
+    for (int y = 0; y < profile->application_table_size; ++y)
+    {
+        if (algo_matches(task, profile->application_table[y].algo))
+        {
+            return profile->application_table[y].time;
+        }
+    }
+    return 0.0f;
 }
 
 void set_service_time_profile(int profile_index)

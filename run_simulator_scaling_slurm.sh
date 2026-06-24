@@ -5,7 +5,7 @@
 #SBATCH --time=12:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=64
 #SBATCH --mem=32G
 #SBATCH --partition=compute
 
@@ -44,9 +44,9 @@ SIMULATOR_EXE="${SIMULATOR_EXE:-main}"
 OUT_DIR="${OUT_DIR:-simulator_scaling_results}"
 
 # Powers of ten by default. Override OBJECTS_LIST for larger or custom sweeps.
-OBJECTS_LIST="${OBJECTS_LIST:-1 10 100 1000 10000}"
-SIZE_MB_LIST="${SIZE_MB_LIST:-1 10 100}"
-WORKERS_LIST="${WORKERS_LIST:-1 2 4 8 16}"
+OBJECTS_LIST="${OBJECTS_LIST:-1 10 100 1000 10000 100000}"
+SIZE_MB_LIST="${SIZE_MB_LIST:-1 10 100 1000}"
+WORKERS_LIST="${WORKERS_LIST:-1 2 4 8 16 32 64 128}"
 REPEATS="${REPEATS:-1}"
 
 SERVICE_TIME_MODEL="${SERVICE_TIME_MODEL:-linear}"
@@ -54,7 +54,7 @@ CONTAINER_PLATFORM="${CONTAINER_PLATFORM:-}"
 QUEUE_CONTAINER_IMAGE="${QUEUE_CONTAINER_IMAGE:-}"
 STOP_ON_ERROR="${STOP_ON_ERROR:-0}"
 SKIP_BUILD="${SKIP_BUILD:-0}"
-DRY_RUN="${DRY_RUN:-0}"
+DRY_RUN="10"
 
 normalize_list() {
     printf "%s" "${1//,/ }"

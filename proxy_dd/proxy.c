@@ -262,34 +262,55 @@ static struct stage_definition *global_stage_definition(int stage)
 
 static double stage_filesystem_bandwidth(int stage)
 {
+    double penalty = 1.0;
+    if (global_config && global_config->workers > 1) {
+        penalty = 1.0 + (global_config->concurrency_penalty * (global_config->workers - 1));
+    }
     struct stage_definition *stage_def = global_stage_definition(stage);
-    if (stage_def)
-        return stage_def->b_fs;
-    return global_config ? global_config->b_fs : 0.0;
+    double val = 0.0;
+    if (stage_def && stage_def->b_fs > 0.0)
+        val = stage_def->b_fs;
+    else
+        val = global_config ? global_config->b_fs : 0.0;
+    return val > 0.0 ? val / penalty : 0.0;
 }
 
 static double stage_filesystem_read_bandwidth(int stage)
 {
+    double penalty = 1.0;
+    if (global_config && global_config->workers > 1) {
+        penalty = 1.0 + (global_config->concurrency_penalty * (global_config->workers - 1));
+    }
     struct stage_definition *stage_def = global_stage_definition(stage);
+    double val = 0.0;
     if (stage_def && stage_def->b_fs_read > 0.0)
-        return stage_def->b_fs_read;
-    if (stage_def && stage_def->b_fs > 0.0)
-        return stage_def->b_fs;
-    if (global_config && global_config->b_fs_read > 0.0)
-        return global_config->b_fs_read;
-    return global_config ? global_config->b_fs : 0.0;
+        val = stage_def->b_fs_read;
+    else if (stage_def && stage_def->b_fs > 0.0)
+        val = stage_def->b_fs;
+    else if (global_config && global_config->b_fs_read > 0.0)
+        val = global_config->b_fs_read;
+    else
+        val = global_config ? global_config->b_fs : 0.0;
+    return val > 0.0 ? val / penalty : 0.0;
 }
 
 static double stage_filesystem_write_bandwidth(int stage)
 {
+    double penalty = 1.0;
+    if (global_config && global_config->workers > 1) {
+        penalty = 1.0 + (global_config->concurrency_penalty * (global_config->workers - 1));
+    }
     struct stage_definition *stage_def = global_stage_definition(stage);
+    double val = 0.0;
     if (stage_def && stage_def->b_fs_write > 0.0)
-        return stage_def->b_fs_write;
-    if (stage_def && stage_def->b_fs > 0.0)
-        return stage_def->b_fs;
-    if (global_config && global_config->b_fs_write > 0.0)
-        return global_config->b_fs_write;
-    return global_config ? global_config->b_fs : 0.0;
+        val = stage_def->b_fs_write;
+    else if (stage_def && stage_def->b_fs > 0.0)
+        val = stage_def->b_fs;
+    else if (global_config && global_config->b_fs_write > 0.0)
+        val = global_config->b_fs_write;
+    else
+        val = global_config ? global_config->b_fs : 0.0;
+    return val > 0.0 ? val / penalty : 0.0;
 }
 
 static double stage_mean_interarrival_seconds(int stage, const struct worker *w)
@@ -1793,6 +1814,9 @@ struct config *read_config(const char *file_name)
     cJSON *app_time = first_number_item(json, application_time_keys, sizeof(application_time_keys) / sizeof(application_time_keys[0]));
     configuration->application_mean_service_time = cJSON_IsNumber(app_time) ? app_time->valuedouble : 0.0;
 
+    cJSON *concurrency_penalty_json = cJSON_GetObjectItemCaseSensitive(json, "concurrency_penalty");
+    configuration->concurrency_penalty = cJSON_IsNumber(concurrency_penalty_json) ? concurrency_penalty_json->valuedouble : 0.0;
+
     stages = cJSON_GetObjectItemCaseSensitive(json, "stages");
     if (cJSON_IsArray(stages))
     {
@@ -3026,6 +3050,19 @@ static double application_time(struct worker *my_data)
 
     struct stage_definition *stage_def = global_stage_definition(my_data->stage);
     double avg_service_time = stage_def ? stage_def->application_mean_service_time : 0.0;
+    if (stage_def && stage_def->name[0] != '\0') {
+        double loaded_time = applicationStageAlgo(stage_def->name);
+        if (loaded_time > 0.0) {
+            avg_service_time = loaded_time;
+        }
+    }
+    
+    double penalty = 1.0;
+    if (global_config && global_config->workers > 1) {
+        penalty = 1.0 + (global_config->concurrency_penalty * (global_config->workers - 1));
+    }
+    avg_service_time *= penalty;
+
     double size_factor = stage_def ? stage_def->application_size_factor : 1.0;
     if (avg_service_time <= 0.0)
         return 0.0;

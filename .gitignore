@@ -48,3 +48,6 @@ CaseStudyBoneTumore/*.bin
 CaseStudyBoneTumore/runinfo/*
 CaseStudyBoneTumore/files.txt
 CaseStudyBoneTumore/error.txt
+simulated_pipeline_results/*
+*.bin
+proxy_dd/results_different_machines/kbresults/c3/*.out

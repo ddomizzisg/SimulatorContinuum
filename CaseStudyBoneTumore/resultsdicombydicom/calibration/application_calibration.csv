@@ -1,0 +1,4 @@
+task,duration_seconds_per_dicom,duration_seconds
+edge_acquisition,0.022572993827160492,3.6568249999999995
+fog_preprocessing,0.019032716049382715,3.0833
+cloud_inference,0.06679422839506173,10.820665
